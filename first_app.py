@@ -44,22 +44,53 @@ def nearest_node(coords,node_data,tree,address_data):
     )
     return point,geojson_layer
 
-data_load_state = st.text('Loading data...')
+#data_load_state = st.text('Loading data...')
 DATA_PATH = 'talca_ciclovias.geojson'
 graph=create_graph(DATA_PATH)
 node_data = load_node_data(graph)
 tree=create_tree(node_data)
 
-if st.checkbox('Mostrar nodos'):
-    st.subheader('Nodos')
-    st.write(node_data)
+#buscador de las rutas con el cual aplicar dikstra y bellman ford
+st.header('Caminos mas cortos')
+init_point=None
+dest_point=None
 
-if st.checkbox('Mostrar aristas'):
-    edge_data = load_edge_data(graph)
-    st.subheader('aristas')
-    st.write(edge_data)
+initial = st.text_input('Ingrese direccion de inicio:') 
+if initial:
+    ret,address_data=geocode(initial)
+    if ret:
+        coords=address_data['features'][0]['geometry']['coordinates']
+        init_point,initial_geojson=nearest_node(coords,node_data,tree,address_data)
+        st.write('Punto de inicio mas cercano : '+str(init_point))
+        layers.append(initial_geojson)
+        r.update()
+    else:
+        st.write('Punto de inicio no encontrado')
+        
 
-#st.map(data)
+destiny = st.text_input('Ingrese direccion de llegada:')
+if destiny:
+    ret,address_data=geocode(destiny)
+    if ret:
+        coords=address_data['features'][0]['geometry']['coordinates']
+        dest_point,dest_geojson=nearest_node(coords,node_data,tree,address_data)
+        st.write('Punto de destino mas cercano : '+str(dest_point))
+        layers.append(dest_geojson)
+        r.update()
+    else:
+        st.write('Punto de inicio no encontrado')
+
+if st.button('Encontrar ruta mas corta'):
+    if not init_point is None and not dest_point is None:
+        st.write('inicio : '+ str(init_point.name))
+        st.write('fin : '+ str(dest_point.name))
+        dist,path=graph.dijkstra(init_point.name,'largo')
+        st.write('distance : '+ str(dist[dest_point.name]))
+    else:
+        st.write('Debe ingresar puntos de inicio y destino')
+
+
+#inicio del mapa con  el layer para graficar los datos
 
 nodes_layer = pdk.Layer(
     "HexagonLayer",
@@ -99,42 +130,3 @@ r = pdk.Deck(
     initial_view_state=view_state
 )
 st.pydeck_chart(r)
-
-st.header('Caminos mas cortos')
-init_point=None
-dest_point=None
-
-initial = st.text_input('Ingrese direccion de destino:') 
-if initial:
-    ret,address_data=geocode(initial)
-    if ret:
-        coords=address_data['features'][0]['geometry']['coordinates']
-        init_point,initial_geojson=nearest_node(coords,node_data,tree,address_data)
-        st.write('Punto de inicio mas cercano : '+str(init_point))
-        layers.append(initial_geojson)
-        r.update()
-    else:
-        st.write('Punto de inicio no encontrado')
-        
-
-destiny = st.text_input('Ingrese direccion de llegada:')
-
-if destiny:
-    ret,address_data=geocode(destiny)
-    if ret:
-        coords=address_data['features'][0]['geometry']['coordinates']
-        dest_point,dest_geojson=nearest_node(coords,node_data,tree,address_data)
-        st.write('Punto de destino mas cercano : '+str(dest_point))
-        layers.append(dest_geojson)
-        r.update()
-    else:
-        st.write('Punto de inicio no encontrado')
-
-if st.button('Encontrar ruta mas corta'):
-    if not init_point is None and not dest_point is None:
-        st.write('inicio : '+str(init_point.name))
-        st.write('fin : '+str(dest_point.name))
-        dist,path=graph.dijkstra(init_point.name,'largo')
-        st.write('distance : '+str(dist[dest_point.name]))
-    else:
-        st.write('Debe ingresar puntos de inicio y destino')
