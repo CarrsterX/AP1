@@ -122,22 +122,6 @@ class weighted_graph(simple_graph):
                     U.update({neighbor:node})
         return D,U
 
-    def bellmanford(self, src): 
-  
-        dist = [float("Inf")] * self.V 
-        dist[src] = 0
-  
-        for _ in range(self.V - 1): 
-          
-            for u, v, w in self.graph: 
-                if dist[u] != float("Inf") and dist[u] + w < dist[v]: 
-                        dist[v] = dist[u] + w 
-  
-        for u, v, w in self.graph: 
-                if dist[u] != float("Inf") and dist[u] + w < dist[v]: 
-                        
-                        return
-
     def shortest_path(self,parent,start,end):
         path=[end]
         k=end
