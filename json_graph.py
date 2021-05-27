@@ -122,6 +122,34 @@ class weighted_graph(simple_graph):
                     U.update({neighbor:node})
         return D,U
 
+    def ini(self, start):
+        d = {} 
+        p = {} 
+        for node in self:
+            d[node] = float('Inf')
+            p[node] = None
+        d[start] = 0
+        return d, p
+
+    def relax(node, neighbour, self, d, p):
+        if d[neighbour] > d[node] + self[node][neighbour]:
+            d[neighbour]  = d[node] + self[node][neighbour]
+            p[neighbour] = node
+
+
+    def bellman_ford(self, start):
+        d, p = ini(self, start)
+        for i in range(len(self)-1): 
+            for u in self:
+                for v in self[u]: #For each neighbour of u
+                    relax(u, v, self, d, p) #Lets relax it
+
+        for u in self:
+            for v in self[u]:
+                assert d[v] <= d[u] + self[u][v]
+        return d, p
+
+
     def shortest_path(self,parent,start,end):
         path=[end]
         k=end
@@ -171,6 +199,3 @@ class json_graph(weighted_graph):
         }
         geo_str = json.dumps(geometries)
         return geo_str
-
-
-
