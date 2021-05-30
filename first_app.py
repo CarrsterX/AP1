@@ -1,3 +1,4 @@
+from bf import bellman_ford
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -5,6 +6,7 @@ import json_graph as jgraph
 import pydeck as pdk
 import geocoder
 from scipy.spatial import KDTree
+import GF
 
 st.title('Ciclovias en Talca')
 
@@ -48,7 +50,51 @@ def nearest_node(coords,node_data,tree,address_data):
 DATA_PATH = 'talca_ciclovias.geojson'
 graph=create_graph(DATA_PATH)
 node_data = load_node_data(graph)
+edge_data = load_edge_data(graph)
 tree=create_tree(node_data)
+G = GF.grafo(node_data, edge_data)
+
+
+#inicio del mapa con  el layer para graficar los datos
+
+nodes_layer = pdk.Layer(
+    "HexagonLayer",
+    data=node_data,
+    get_position="[lon, lat]",
+    auto_highlight=True,
+    elevation_scale=2,
+    radius=15,##radio del objeto generado
+    pickable=True,
+    elevation_range=[0, 50],
+    extruded=True,
+    coverage=0.5,
+)
+
+edges_layer = pdk.Layer(
+    "GeoJsonLayer",
+    data=graph.draw_graph(),
+    pickable= True,
+    stroked= False,
+    filled= True,
+    extruded= True,
+    lineWidthScale= 20,
+    lineWidthMinPixels= 2,
+    getFillColor= [160, 160, 180, 200],  
+    getRadius= 100,
+    getLineWidth= 10,
+    getElevation= 30
+)
+# Set the viewport location
+view_state = pdk.ViewState(
+    longitude=node_data.mean()['lon'], latitude=node_data.mean()['lat'], zoom=10, min_zoom=1, max_zoom=15, pitch=40.5, bearing=-27.36
+)
+layers=[nodes_layer,edges_layer]
+# Combined all of it and render a viewport
+r = pdk.Deck(
+    map_style="mapbox://styles/mapbox/light-v9",
+    layers=layers,
+    initial_view_state=view_state
+)
 
 #buscador de las rutas con el cual aplicar dikstra y bellman ford
 st.header('Caminos mas cortos')
@@ -84,49 +130,19 @@ if st.button('Encontrar ruta mas corta'):
     if not init_point is None and not dest_point is None:
         st.write('inicio : '+ str(init_point.name))
         st.write('fin : '+ str(dest_point.name))
-        dist,path=graph.dijkstra(init_point.name,'largo')
-        st.write('distance : '+ str(dist[dest_point.name]))
+        #dist=graph.dijkstra(init_point.name)
+        Rb,Eb,Db = GF.bellman_ford(G, init_point.name, dest_point.name)
+        Rd,Ed,Dd = GF.dijkstra(G, init_point.name, dest_point.name)
+        
+        st.write("El tiempo de ejecucion es: "+ str(Ed) + "," + str(Eb))
+        st.write("El distancia es: " + str(Dd) + "," + str(Db))
+        #st.write(dist)
+        
+        #st.write('distance : '+ str(dist))
     else:
         st.write('Debe ingresar puntos de inicio y destino')
 
+st.write(r)
 
-#inicio del mapa con  el layer para graficar los datos
 
-nodes_layer = pdk.Layer(
-    "HexagonLayer",
-    data=node_data,
-    get_position="[lon, lat]",
-    auto_highlight=True,
-    elevation_scale=50,
-    pickable=True,
-    elevation_range=[0, 100],
-    extruded=True,
-    coverage=0.5,
-)
 
-edges_layer = pdk.Layer(
-    "GeoJsonLayer",
-    data=graph.draw_graph(),
-    pickable= True,
-    stroked= False,
-    filled= True,
-    extruded= True,
-    lineWidthScale= 20,
-    lineWidthMinPixels= 2,
-    getFillColor= [160, 160, 180, 200],  
-    getRadius= 100,
-    getLineWidth= 10,
-    getElevation= 30
-)
-# Set the viewport location
-view_state = pdk.ViewState(
-    longitude=node_data.mean()['lon'], latitude=node_data.mean()['lat'], zoom=10, min_zoom=1, max_zoom=15, pitch=40.5, bearing=-27.36
-)
-layers=[nodes_layer,edges_layer]
-# Combined all of it and render a viewport
-r = pdk.Deck(
-    map_style="mapbox://styles/mapbox/light-v9",
-    layers=layers,
-    initial_view_state=view_state
-)
-st.pydeck_chart(r)
