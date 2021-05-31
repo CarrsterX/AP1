@@ -1,4 +1,5 @@
-from bf import bellman_ford
+
+import GF
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -6,7 +7,7 @@ import json_graph as jgraph
 import pydeck as pdk
 import geocoder
 from scipy.spatial import KDTree
-import GF
+
 
 st.title('Ciclovias en Talca')
 
@@ -35,16 +36,7 @@ def geocode(address):
 def nearest_node(coords,node_data,tree,address_data):
     d,i=tree.query(coords)
     point=node_data.iloc[i]
-    geojson_layer = pdk.Layer(
-        "GeoJsonLayer",
-        data=address_data,
-        stroked=False,
-        filled=True,
-        extruded=True,
-        wireframe=True,
-        get_line_color=[0, 0, 0],
-    )
-    return point,geojson_layer
+    return point
 
 #data_load_state = st.text('Loading data...')
 DATA_PATH = 'talca_ciclovias.geojson'
@@ -69,30 +61,21 @@ nodes_layer = pdk.Layer(
     extruded=True,
     coverage=0.5,
 )
-
-edges_layer = pdk.Layer(
-    "GeoJsonLayer",
-    data=graph.draw_graph(),
-    pickable= True,
-    stroked= False,
-    filled= True,
-    extruded= True,
-    lineWidthScale= 20,
-    lineWidthMinPixels= 2,
-    getFillColor= [160, 160, 180, 200],  
-    getRadius= 100,
-    getLineWidth= 10,
-    getElevation= 30
-)
 # Set the viewport location
 view_state = pdk.ViewState(
-    longitude=node_data.mean()['lon'], latitude=node_data.mean()['lat'], zoom=10, min_zoom=1, max_zoom=15, pitch=40.5, bearing=-27.36
+    longitude=node_data.mean()['lon'], latitude=node_data.mean()['lat'], zoom=13, min_zoom=1, max_zoom=15, pitch=40.5, bearing=-27.36
 )
-layers=[nodes_layer,edges_layer]
+layers1=[nodes_layer]
+layers2=[nodes_layer]
 # Combined all of it and render a viewport
 r = pdk.Deck(
     map_style="mapbox://styles/mapbox/light-v9",
-    layers=layers,
+    layers=layers1,
+    initial_view_state=view_state
+)
+g = pdk.Deck(
+    map_style="mapbox://styles/mapbox/light-v9",
+    layers=layers2,
     initial_view_state=view_state
 )
 
@@ -106,10 +89,8 @@ if initial:
     ret,address_data=geocode(initial)
     if ret:
         coords=address_data['features'][0]['geometry']['coordinates']
-        init_point,initial_geojson=nearest_node(coords,node_data,tree,address_data)
+        init_point=nearest_node(coords,node_data,tree,address_data)
         st.write('Punto de inicio mas cercano : '+str(init_point))
-        layers.append(initial_geojson)
-        r.update()
     else:
         st.write('Punto de inicio no encontrado')
         
@@ -119,30 +100,36 @@ if destiny:
     ret,address_data=geocode(destiny)
     if ret:
         coords=address_data['features'][0]['geometry']['coordinates']
-        dest_point,dest_geojson=nearest_node(coords,node_data,tree,address_data)
+        dest_point=nearest_node(coords,node_data,tree,address_data)
         st.write('Punto de destino mas cercano : '+str(dest_point))
-        layers.append(dest_geojson)
-        r.update()
     else:
         st.write('Punto de inicio no encontrado')
 
 if st.button('Encontrar ruta mas corta'):
     if not init_point is None and not dest_point is None:
-        st.write('inicio : '+ str(init_point.name))
-        st.write('fin : '+ str(dest_point.name))
-        #dist=graph.dijkstra(init_point.name)
+        st.write('inicio : '+ str(init_point.name)+'fin : '+ str(dest_point.name))
         Rb,Eb,Db = GF.bellman_ford(G, init_point.name, dest_point.name)
         Rd,Ed,Dd = GF.dijkstra(G, init_point.name, dest_point.name)
         
-        st.write("El tiempo de ejecucion es: "+ str(Ed) + "," + str(Eb))
-        st.write("El distancia es: " + str(Dd) + "," + str(Db))
-        #st.write(dist)
-        
-        #st.write('distance : '+ str(dist))
+        st.write("El tiempo de ejecucion: ")
+        st.write("Dijkstra: "+ str(Ed) +"              "+ "Bellman ford: " + str(Eb))
+        st.write("Distancia: ")
+        st.write("Dijkstra: "+ str(Dd) +"              "+ "Bellman ford: " + str(Db))
+        st.write("")
+        st.write("CAMINO GRAFICADO EN COLOR ROJO")
+        camino_Dijkstra = GF.camino(G,Rd) 
+        camino_Bellman = GF.camino(G,Rb) 
+        caminitoDijkstra = GF.layer_caminito(camino_Dijkstra)
+        caminitoBellman = GF.layer_caminito(camino_Bellman)
+        layers1.append(caminitoDijkstra)
+        layers2.append(caminitoBellman)
+        r.update()
+        g.update()
     else:
         st.write('Debe ingresar puntos de inicio y destino')
-
+st.write("Mapa generado para representar caminos dijkstra")
 st.write(r)
-
+st.write("Mapa generado para representar caminos bellman ford")
+st.write(g)
 
 
